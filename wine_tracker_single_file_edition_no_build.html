@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Wine Tracker – Single‑File</title>
+  <meta name="theme-color" content="#ffffff" />
+  <style>
+    :root { --bg:#f6f7f9; --fg:#0f172a; --muted:#64748b; --card:#ffffff; --line:#e5e7eb; --acc:#111827; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color:var(--fg); background:var(--bg); }
+    header { position:sticky; top:0; background:rgba(255,255,255,0.8); backdrop-filter: blur(8px); border-bottom:1px solid var(--line); }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 16px; }
+    h1 { font-size: 18px; margin: 0; display:flex; align-items:center; gap:8px; }
+    .grid { display:grid; gap:16px; }
+    @media (min-width: 900px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; }
+    .row { display:grid; gap:10px; grid-template-columns: 1fr 1fr; }
+    .row-3 { grid-template-columns: 1fr 1fr 1fr; }
+    label { font-size:12px; color:var(--muted); display:block; margin-bottom:4px; }
+    input, textarea, select, button { font:inherit; }
+    input[type="text"], input[type="number"], input[type="date"], textarea, select { width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:#fff; }
+    textarea { min-height: 90px; }
+    .btn { display:inline-flex; align-items:center; gap:8px; padding:10px 12px; border-radius: 10px; border:1px solid var(--line); background:#fff; cursor:pointer; }
+    .btn.primary { background:var(--acc); color:#fff; border-color:var(--acc); }
+    .btn.ghost { background:transparent; }
+    .toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .list { display:grid; gap:12px; }
+    .wine { padding:12px; border:1px solid var(--line); border-radius:12px; display:flex; justify-content:space-between; align-items:center; }
+    .muted { color:var(--muted); }
+    .pill { background:#eef2ff; border:1px solid #e0e7ff; color:#3730a3; padding:2px 8px; border-radius:999px; font-size:12px; }
+    .right { text-align:right; }
+    .footer { font-size:12px; color:var(--muted); margin-top: 8px; }
+    @media print { 
+      @page { size: letter; margin: 0.5in; }
+      header, .no-print { display:none !important; }
+      body { background:#fff; }
+      .sheet { display:grid; grid-template-columns: 1fr 1fr; gap: 0.35in; }
+      .card, .wine { border-color:#ddd; }
+      .print-card { break-inside: avoid; border:1px solid #ddd; border-radius:12px; padding:10pt; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap" style="display:flex; align-items:center; gap:12px;">
+      <h1>🍷 Wine Tracker — Single‑File</h1>
+      <div style="margin-left:auto" class="toolbar no-print">
+        <button class="btn" id="btn-export">⬇️ Export</button>
+        <label class="btn" for="import">⬆️ Import<input id="import" type="file" accept="application/json" style="display:none"/></label>
+        <button class="btn" id="btn-print">🖨️ Print booklet</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap grid grid-2" style="margin-top:12px;">
+    <section class="card">
+      <h2 style="margin-top:0">Add a wine</h2>
+      <div class="row">
+        <div><label>Producer *</label><input id="producer" type="text" placeholder="e.g., Ridge"/></div>
+        <div><label>Cuvée / Label</label><input id="cuvee" type="text" placeholder="e.g., Geyserville"/></div>
+        <div><label>Vintage</label><input id="vintage" type="number" placeholder="2021"/></div>
+        <div><label>Region</label><input id="region" type="text" placeholder="e.g., California"/></div>
+        <div><label>Appellation</label><input id="appellation" type="text" placeholder="e.g., Alexander Valley"/></div>
+        <div><label>Grapes</label><input id="grapes" type="text" placeholder="e.g., Zinfandel, Carignane"/></div>
+        <div class="row">
+          <div><label>Quantity *</label><input id="qty" type="number" value="1" min="1"/></div>
+          <div><label>Price (each)</label><input id="price" type="number" step="0.01" placeholder="46.00"/></div>
+        </div>
+        <div><label>Acquired from</label><input id="acquired_from" type="text" placeholder="Shop or winery"/></div>
+        <div><label>Acquisition date</label><input id="acq_date" type="date"/></div>
+        <div class="row" style="grid-template-columns:1fr;">
+          <div><label>Location</label><input id="location" type="text" placeholder="Cellar / Rack / Bin / Slot"/></div>
+        </div>
+        <div class="row" style="grid-template-columns:1fr;">
+          <div><label>Notes</label><textarea id="notes" placeholder="Anything you want to remember"></textarea></div>
+        </div>
+      </div>
+
+      <div class="toolbar" style="margin-top:12px">
+        <button class="btn primary" id="btn-save">➕ Save to inventory</button>
+        <label class="btn" for="photo">📷 Read from label photo (optional)<input id="photo" type="file" accept="image/*" capture="environment" style="display:none"/></label>
+        <span class="footer">Tip: Taking photos requires the site to be on the web (not opened from your files). We’ll put it online below.</span>
+      </div>
+      <div id="ocr-status" class="footer"></div>
+    </section>
+
+    <section class="card">
+      <h2 style="margin-top:0">Your wines</h2>
+      <div class="row"><div><label>Search</label><input id="search" type="text" placeholder="Type to filter"/></div></div>
+      <div id="list" class="list" style="margin-top:12px"></div>
+      <div class="footer">Data is saved in your browser only. Use Export/Import to move it to another device.</div>
+    </section>
+
+    <section class="card" style="grid-column:1/-1">
+      <h2 style="margin-top:0">Print preview</h2>
+      <div class="sheet" id="print-sheet"></div>
+      <div class="footer no-print">Click “🖨️ Print booklet” (top right) to print or save as PDF.</div>
+    </section>
+  </main>
+
+  <!-- Libraries from CDNs -->
+  <script src="https://unpkg.com/dexie@3/dist/dexie.min.js"></script>
+  <script src="https://unpkg.com/tesseract.js@5/dist/tesseract.min.js"></script>
+
+  <script>
+    // Simple DB (Dexie / IndexedDB)
+    const db = new Dexie('wine_tracker_single_file');
+    db.version(1).stores({
+      wines: '++id,producer,cuvee,vintage,region,appellation,updated_at',
+      bottles: '++id,wineId,status,location',
+      tastings: '++id,wineId,date'
+    });
+
+    const $ = (id) => document.getElementById(id);
+    const nowISO = () => new Date().toISOString().slice(0,10);
+    $('acq_date').value = nowISO();
+
+    function moneyToCents(v){ if(!v) return null; const n = parseFloat(v); if (isNaN(n)) return null; return Math.round(n*100); }
+    function centsToMoney(c){ if(c==null) return '—'; return '$' + (c/100).toFixed(2); }
+
+    async function refreshList(){
+      const q = $('search').value.trim().toLowerCase();
+      const wines = await db.wines.orderBy('updated_at').reverse().toArray();
+      const bottles = await db.bottles.toArray();
+      const count = {}; bottles.forEach(b=>{ if(b.status==='cellared') count[b.wineId]=(count[b.wineId]||0)+1; });
+      const wrap = $('list'); wrap.innerHTML='';
+      wines
+        .filter(w=> !q || `${w.producer} ${w.cuvee||''} ${w.region||''} ${w.appellation||''} ${w.vintage||''}`.toLowerCase().includes(q))
+        .forEach(w=>{
+          const div = document.createElement('div');
+          div.className = 'wine';
+          div.innerHTML = `
+            <div>
+              <div><strong>${escapeHTML(w.producer)}</strong> ${w.cuvee? '— '+escapeHTML(w.cuvee):''} ${w.vintage||''}</div>
+              <div class="muted">${escapeHTML([w.region,w.appellation].filter(Boolean).join(' · '))}</div>
+              <div class="muted">${escapeHTML(w.grapes||'')}</div>
+            </div>
+            <div class="right">
+              <div class="pill">${count[w.id]||0} in cellar</div>
+              <div class="muted">Drink ${w.drink_start||'?'}–${w.drink_end||'?'}</div>
+            </div>`;
+          wrap.appendChild(div);
+        });
+      // also update print cards
+      buildPrintCards(wines, count);
+    }
+
+    function buildPrintCards(wines, count){
+      const sheet = $('print-sheet');
+      sheet.innerHTML = wines.map(w=>`
+        <div class="print-card">
+          <h3 style="margin:0 0 4pt 0;font-size:12pt;">${escapeHTML(w.producer)} ${w.cuvee? '— '+escapeHTML(w.cuvee):''} ${w.vintage||''}</h3>
+          <div style="font-size:9pt;color:#475569;line-height:1.3;">
+            <div><b>Region</b> ${escapeHTML([w.region,w.appellation].filter(Boolean).join(' · '))}</div>
+            <div><b>Grapes</b> ${escapeHTML(w.grapes||'')}</div>
+            <div><b>Qty</b> ${count[w.id]||0}</div>
+            <div><b>Drink</b> ${w.drink_start||'?'}–${w.drink_end||'?'}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    $('btn-save').onclick = async () => {
+      const producer = $('producer').value.trim();
+      if(!producer){ alert('Please enter a Producer'); return; }
+      const w = {
+        producer,
+        cuvee: $('cuvee').value.trim()||'',
+        vintage: $('vintage').value ? parseInt($('vintage').value,10) : null,
+        region: $('region').value.trim()||'',
+        appellation: $('appellation').value.trim()||'',
+        grapes: $('grapes').value.trim()||'',
+        notes: $('notes').value.trim()||'',
+        drink_start: null, drink_end: null,
+        created_at: Date.now(), updated_at: Date.now()
+      };
+      const id = await db.wines.add(w);
+      const qty = Math.max(1, parseInt($('qty').value||'1',10));
+      const priceCents = moneyToCents($('price').value);
+      for(let i=0;i<qty;i++){
+        await db.bottles.add({ wineId:id, status:'cellared', acquisition_date: $('acq_date').value || nowISO(), acquired_from:$('acquired_from').value.trim()||'', acquisition_price_cents: priceCents, currency:'USD', location: $('location').value.trim()||'' });
+      }
+      // clear key fields
+      ['producer','cuvee','vintage','region','appellation','grapes','price','acquired_from','location','notes'].forEach(id=>$(id).value='');
+      $('qty').value='1'; $('acq_date').value = nowISO();
+      refreshList();
+      alert('Saved!');
+    };
+
+    $('search').oninput = refreshList;
+
+    $('btn-export').onclick = async () => {
+      const data = { wines: await db.wines.toArray(), bottles: await db.bottles.toArray(), tastings: await db.tastings.toArray() };
+      const blob = new Blob([JSON.stringify(data,null,2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href=url; a.download = `wine-backup-${nowISO()}.json`; a.click();
+    };
+
+    $('import').onchange = async (e) => {
+      const file = e.target.files[0]; if(!file) return;
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if(data.wines) await db.wines.bulkPut(data.wines);
+      if(data.bottles) await db.bottles.bulkPut(data.bottles);
+      if(data.tastings) await db.tastings.bulkPut(data.tastings);
+      alert('Imported.');
+      refreshList();
+    };
+
+    $('btn-print').onclick = () => window.print();
+
+    // Very light OCR (reads photo text, guesses producer/vintage)
+    $('photo').onchange = async (e) => {
+      const file = e.target.files[0]; if(!file) return;
+      const url = URL.createObjectURL(file);
+      $('ocr-status').textContent = 'Reading your label… first time may take ~10–20 seconds.';
+      try {
+        const { createWorker } = Tesseract;
+        const worker = await createWorker('eng');
+        const res = await worker.recognize(url);
+        await worker.terminate();
+        const text = (res?.data?.text||'').trim();
+        $('ocr-status').textContent = text ? 'Text found. We filled a couple of fields for you—please double‑check.' : 'No text detected. You can type it in.';
+        // Guess: first line as producer, second as cuvée; first 4‑digit year as vintage
+        const lines = text.split(/\n+/).map(s=>s.trim()).filter(Boolean);
+        const vintageMatch = text.match(/(19|20)\d{2}/);
+        if(lines[0]) $('producer').value = lines[0];
+        if(lines[1]) $('cuvee').value = lines[1];
+        if(vintageMatch) $('vintage').value = vintageMatch[0];
+      } catch (err) {
+        $('ocr-status').textContent = 'Could not read the photo. No worries—just type the details.';
+      }
+    };
+
+    function escapeHTML(s){ return (s||'').replace(/[&<>"']/g, c=> ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c])); }
+
+    // First load
+    refreshList();
+  </script>
+</body>
+</html>
